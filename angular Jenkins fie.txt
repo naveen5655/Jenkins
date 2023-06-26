@@ -1,0 +1,56 @@
+pipeline {
+  agent any
+  
+  stages {
+    stage('Lint') {
+      steps {
+        // Lint Dockerfile
+        sh 'hadolint Dockerfile'
+        
+        // Lint Angular code
+        sh 'eslint <path_to_angular_code>'
+      }
+    }
+    
+    stage('Run tests') {
+      steps {
+        // Run unit tests and integration tests
+        sh 'npm install' // Install dependencies
+        sh 'npm test'    // Run tests
+      }
+    }
+    
+    stage('Build Docker image') {
+      steps {
+        // Build the Docker image
+        sh 'docker build -t hello-world-app .'
+      }
+    }
+    
+    stage('Publish to Artifactory') {
+      steps {
+        // Publish the Docker image to Artifactory
+        script {
+          def server = Artifactory.server('<artifactory_instance_name>')
+          def dockerImage = docker.image('hello-world-app')
+          
+          docker.withRegistry(server) {
+            dockerImage.push("${env.BUILD_NUMBER}")
+            dockerImage.push('latest')
+          }
+        }
+      }
+    }
+    
+    stage('Send Notifications') {
+      steps {
+        // Send notifications (example: email)
+        emailext (
+          subject: "CI/CD Pipeline Notification - ${currentBuild.result}",
+          body: "The CI/CD pipeline for Hello World application completed. Result: ${currentBuild.result}",
+          to: 'your-email@example.com'
+        )
+      }
+    }
+  }
+}
